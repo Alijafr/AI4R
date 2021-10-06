@@ -52,46 +52,70 @@ if OUTPUT_UNIQUE_FILE_ID:
 # over time.
 #
 
-def estimate_next_pos(height, radar, mapFunc, OTHER=None,N=10000):
+def estimate_next_pos(height, radar, mapFunc, OTHER=None,N=30000,N_reduced=2000):
     """Estimate the next (x,y) position of the glider."""
     particles = []
     weights = []
     x_estimated = 0.0
-    y_estimated = 0.0 
+    y_estimated = 0.0
+    barometer_sigma = 0.1
+    radar_sigma = 50
+    optionalPointsToPlot =[]
     if OTHER is None:
         #first time this function is called
         #the expected pos is at (0,0)
         #expected "sea level" is at 5000m
         glider_start_sigma_x = [-250,250]
         glider_start_sigma_y = [-250,250]
-        glider_start_sigma_z = [-50,50]
+        # glider_start_sigma_z = [-50,50]
         glider_heading_range =[0 , pi/4]
         for i in range(N):
             x = random.uniform(glider_start_sigma_x[0],glider_start_sigma_x[1])
             y = random.uniform(glider_start_sigma_y[0],glider_start_sigma_y[1])
-            z = 5000 + random.uniform(glider_start_sigma_z[0], glider_start_sigma_z[1])
-            heading = random.uniform(glider_heading_range[0], glider_heading_range[1])
+            # z = 5000 + random.uniform(glider_start_sigma_z[0], glider_start_sigma_z[1])
+            z = height
+            heading = random.gauss(glider_heading_range[0], glider_heading_range[1])
             glider_particle = glider(x=x,y=y,z=z,heading=heading)
-            glider_particle.s.et_noise(0.1,0.05,2.0)
             particles.append(glider_particle)
-            #the estimated x and y is the avarage pos from all particles 
-            x_estimated += x
-            y_estimated += y
+            #calculate the weight 
+            particle_radar = glider_particle.z - mapFunc(glider_particle.x,glider_particle.y) 
+            weight= measurement_prob(height,barometer_sigma,glider_particle.z,particle_radar,radar_sigma,radar)
+            weights.append(weight)
+            ##NOTE:the estimation is for the next step
+            predicted_particle = glider_particle.glide()
+            x_estimated +=predicted_particle.x
+            y_estimated +=predicted_particle.y
+            #plot the particle 
+            optionalPointsToPlot +=[(x_estimated,y_estimated,heading)]
             
-            #get the weight 
-            estimated_elevation_xy = mapFunc(x,y)
-            measured_elevation = height - radar
-            error = abs(estimated_elevation_xy-measured_elevation)
-            #calculate the 
             
-        x_estimated /= N
-        y_estimated /= N
+        #calculate teh estimated x and y
+        x_estimated /=N
+        y_estimated /=N
         xy_estimate = (x_estimated,y_estimated)
-        OTHER=particles
+        #resampling 
+        #resampling
+        resampled_particles=resampling(particles,weights,N_reduced)
+        OTHER={"p":resampled_particles}
     else:
-        
-        pass
-    
+        particles = OTHER["p"]
+        for i in range(N_reduced):
+            particle_radar = particles[i].z - mapFunc(particles[i].x,particles[i].y) 
+            weight= measurement_prob(height,barometer_sigma,particles[i].z,particle_radar,radar_sigma,radar)
+            weights.append(weight)
+            ##NOTE:the estimation is for the next step
+            predicted_particle = particles[i].glide()
+            x_estimated +=predicted_particle.x
+            y_estimated +=predicted_particle.y
+            #plot the particle 
+            optionalPointsToPlot +=[(x_estimated,y_estimated,particles[i].heading)]
+        x_estimated /=N_reduced
+        y_estimated /=N_reduced
+        xy_estimate = (x_estimated,y_estimated)
+        #resampling 
+        #resampling
+        resampled_particles=resampling(particles,weights,N_reduced)
+        OTHER={"p":resampled_particles}
        
         # You may optionally also return a list of (x,y,h) points that you would like
         # the PLOT_PARTICLES=True visualizer to plot for visualization purposes.
@@ -104,21 +128,35 @@ def estimate_next_pos(height, radar, mapFunc, OTHER=None,N=10000):
     return xy_estimate, OTHER, optionalPointsToPlot
 
 
-def Gaussian(self, mu, sigma, x):
+def Gaussian( mu, sigma, x):
         
         # calculates the probability of x for 1-dim Gaussian with mean mu and var. sigma
         return exp(- ((mu - x) ** 2) / (sigma ** 2) / 2.0) / sqrt(2.0 * pi * (sigma ** 2))
     
     
-def measurement_prob(self, measurement):
+def measurement_prob(particle_height,sensor_height,barometer_sigma,particle_radar,sensor_radar,radar_sigma):
     
     # calculates how likely a measurement should be
     
-    prob = 1.0;
-    for i in range(len(landmarks)):
-        dist = sqrt((self.x - landmarks[i][0]) ** 2 + (self.y - landmarks[i][1]) ** 2)
-        prob *= self.Gaussian(dist, self.sense_noise, measurement[i])
+    
+    #first landmar: height
+    prob = Gaussian(particle_height, barometer_sigma, sensor_height)
+    # prob = Gaussian(particle_radar, radar_sigma, sensor_radar)
     return prob
+
+def resampling(p,w,N):
+    p2 = []
+    index = int(random.random() * N)
+    beta = 0.0
+    mw = max(w)
+    for i in range(N):
+        beta += random.random() * 2.0 * mw
+        while beta > w[index]:
+            beta -= w[index]
+            index = (index + 1) % N
+        p2.append(p[index])
+    
+    return p2
 
 # This is the function you will have to write for part B. The goal in part B
 # is to navigate your glider towards (0,0) on the map steering # the glider 

@@ -35,7 +35,7 @@ from opensimplex import OpenSimplex
 # number to match your computer's speed to that of the
 # VM used by GradeScope
 ########################################################################
-TIME_LIMIT = 10  # seconds
+TIME_LIMIT = 20  # seconds
 
 ########################################################################
 # Additional flags for debug output and visualization
@@ -49,7 +49,7 @@ PLOT_MAP = False  # False for grading  (True for map coloring in part A )
 # Toggles for different parts of the assignment
 ########################################################################
 PART_A = True  # Enable/disable Part A (Estimation) - True for grading
-PART_B = True  # Enable/disable Part B (Steering) - True for grading
+PART_B = False  # Enable/disable Part B (Steering) - True for grading
 
 ########################################################################
 # If your debugger does not handle multiprocess debugging very easily
