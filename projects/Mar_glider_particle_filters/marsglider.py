@@ -52,63 +52,79 @@ if OUTPUT_UNIQUE_FILE_ID:
 # over time.
 #
 
-def estimate_next_pos(height, radar, mapFunc, OTHER=None,N=30000,N_reduced=2000):
+def estimate_next_pos(height, radar, mapFunc, OTHER=None,N=30000,N_reduced=1000):
     """Estimate the next (x,y) position of the glider."""
     particles = []
     weights = []
     x_estimated = 0.0
     y_estimated = 0.0
-    barometer_sigma = 0.1
-    radar_sigma = 50
+    barometer_sigma = 10
+    radar_sigma = 25
     optionalPointsToPlot =[]
+    print_n = True
+    n = 0
+    fuz_sigma_heading = 0.15
+    fuz_sigma_xy = 7
     if OTHER is None:
         #first time this function is called
         #the expected pos is at (0,0)
         #expected "sea level" is at 5000m
         glider_start_sigma_x = [-250,250]
         glider_start_sigma_y = [-250,250]
-        # glider_start_sigma_z = [-50,50]
-        glider_heading_range =[0 , pi/4]
+        glider_start_sigma_z = [-50,50]
+        mu_heading = 0
+        sigma_heading = pi/4
         for i in range(N):
             x = random.uniform(glider_start_sigma_x[0],glider_start_sigma_x[1])
             y = random.uniform(glider_start_sigma_y[0],glider_start_sigma_y[1])
             # z = 5000 + random.uniform(glider_start_sigma_z[0], glider_start_sigma_z[1])
             z = height
-            heading = random.gauss(glider_heading_range[0], glider_heading_range[1])
-            glider_particle = glider(x=x,y=y,z=z,heading=heading)
-            particles.append(glider_particle)
+            heading = random.gauss(mu_heading, sigma_heading)
+            # optionalPointsToPlot +=[(x,y,heading)]
+            glider_particle = glider(x=x,y=y,z=z,heading=heading,mapFunc=mapFunc)
             #calculate the weight 
-            particle_radar = glider_particle.z - mapFunc(glider_particle.x,glider_particle.y) 
-            weight= measurement_prob(height,barometer_sigma,glider_particle.z,particle_radar,radar_sigma,radar)
+            particle_radar = glider_particle.sense()
+            weight= measurement_prob(particle_radar,radar,radar_sigma,glider_particle.z,height,barometer_sigma)
             weights.append(weight)
             ##NOTE:the estimation is for the next step
             predicted_particle = glider_particle.glide()
+            particles.append(predicted_particle)
             x_estimated +=predicted_particle.x
             y_estimated +=predicted_particle.y
             #plot the particle 
-            optionalPointsToPlot +=[(x_estimated,y_estimated,heading)]
-            
-            
+            optionalPointsToPlot +=[(predicted_particle.x,predicted_particle.y,heading)]
+            # if print_n:
+            #     if particle_radar-radar < 0.01:
+            #         n +=1
+            #         print(n)
+                
+        print(max(weights))   
         #calculate teh estimated x and y
         x_estimated /=N
         y_estimated /=N
         xy_estimate = (x_estimated,y_estimated)
         #resampling 
-        #resampling
         resampled_particles=resampling(particles,weights,N_reduced)
-        OTHER={"p":resampled_particles}
+        OTHER={"p":resampled_particles,'counts':1}
     else:
-        particles = OTHER["p"]
+        recieved_particles = OTHER["p"]
+        # print(len(recieved_particles))
         for i in range(N_reduced):
-            particle_radar = particles[i].z - mapFunc(particles[i].x,particles[i].y) 
-            weight= measurement_prob(height,barometer_sigma,particles[i].z,particle_radar,radar_sigma,radar)
+            #fuzzing
+            recieved_particles[i].x = random.uniform(recieved_particles[i].x-fuz_sigma_xy, recieved_particles[i].x+fuz_sigma_xy)
+            recieved_particles[i].y = random.uniform(recieved_particles[i].y-fuz_sigma_xy, recieved_particles[i].y+fuz_sigma_xy)
+            recieved_particles[i].heading = random.gauss(recieved_particles[i].heading, fuz_sigma_heading)
+            #calculate the weight
+            particle_radar = recieved_particles[i].sense()
+            weight= measurement_prob(particle_radar,radar,radar_sigma, recieved_particles[i].z,height,barometer_sigma)
             weights.append(weight)
             ##NOTE:the estimation is for the next step
-            predicted_particle = particles[i].glide()
+            predicted_particle = recieved_particles[i].glide()
+            particles.append(predicted_particle)
             x_estimated +=predicted_particle.x
             y_estimated +=predicted_particle.y
             #plot the particle 
-            optionalPointsToPlot +=[(x_estimated,y_estimated,particles[i].heading)]
+            optionalPointsToPlot +=[(predicted_particle.x,predicted_particle.y,particles[i].heading)]
         x_estimated /=N_reduced
         y_estimated /=N_reduced
         xy_estimate = (x_estimated,y_estimated)
@@ -134,19 +150,19 @@ def Gaussian( mu, sigma, x):
         return exp(- ((mu - x) ** 2) / (sigma ** 2) / 2.0) / sqrt(2.0 * pi * (sigma ** 2))
     
     
-def measurement_prob(particle_height,sensor_height,barometer_sigma,particle_radar,sensor_radar,radar_sigma):
+def measurement_prob(particle_radar,sensor_radar,radar_sigma,particle_height,sensor_height,barometer_sigma):
     
     # calculates how likely a measurement should be
     
     
     #first landmar: height
-    prob = Gaussian(particle_height, barometer_sigma, sensor_height)
-    # prob = Gaussian(particle_radar, radar_sigma, sensor_radar)
+    # prob = Gaussian(particle_height, barometer_sigma, sensor_height)
+    prob = Gaussian(particle_radar, radar_sigma, sensor_radar)
     return prob
 
 def resampling(p,w,N):
     p2 = []
-    index = int(random.random() * N)
+    index = int(random.random() * len(w))
     beta = 0.0
     mw = max(w)
     for i in range(N):

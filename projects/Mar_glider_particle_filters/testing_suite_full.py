@@ -35,7 +35,7 @@ from opensimplex import OpenSimplex
 # number to match your computer's speed to that of the
 # VM used by GradeScope
 ########################################################################
-TIME_LIMIT = 20  # seconds
+TIME_LIMIT = 7 # seconds
 
 ########################################################################
 # Additional flags for debug output and visualization
@@ -66,7 +66,7 @@ WINDOW_SIZE = 400  # Size of the window in "units" (actually 2x this...)
 # Looks like a problem specific to Mac OS High Sierra and internal threading libraries.
 
 PI = math.pi
-CREDIT_PER_PASS = 7  # points per test case pass.
+CREDIT_PER_PASS = 10  # points per test case pass.
 
 # 10 test cases, ran in both parts A & B for 20 total.
 # Max score if you get all test cases is potentially 140, but capped at 101 
