@@ -127,7 +127,7 @@ class DeliveryPlanner_PartA:
         self.robot_position = self.dropzone
         self.box_held = None
 
-    def _search(self, debug=False):
+    def _search(self, start, goal, pickup=True, debug=False):
         """
         This method should be based on lesson modules for A*, see Search, Section 12-14.
         The bulk of the search logic should reside here, should you choose to use this starter code.
@@ -138,18 +138,120 @@ class DeliveryPlanner_PartA:
 
         # get a shortcut variable for the warehouse (note this is just a view no copying)
         grid = self.warehouse_state
-
+        rows = len(self.warehouse_state)
+        cols = len(self.warehouse_state[0])
+        
+        #start = self.find_location('*')
+        #goal = self.find_location()
+        heuristic = self.heuristic(goal)
+        
+        explored = [[0 for col in range(len(grid[0]))] for row in range(len(grid))]
+        explored[start[0]][start[1]] = 1
+        
+        expand = [[-1 for col in range(len(grid[0]))] for row in range(len(grid))]
+        action = [[-1 for col in range(len(grid[0]))] for row in range(len(grid))]
+        
+        
+        x = start[0]
+        y = start[1]
+        g = 0 
+        h = heuristic[x][y]
+        f = g+h
+        frontier = [[f,g,h, x, y]]
+        
+        found = False  # flag that is set when search is complete
+        resign = False  # flag set if we can't find expand
+        count = 0
+        
+        while not found and not resign:
+            if len(frontier) == 0:
+                resign = True
+                return "Fail"
+            else:
+                frontier.sort()
+                frontier.reverse() #we reverse because pop() pops from the end 
+                next_node = frontier.pop()
+                x = next_node[3]
+                y = next_node[4]
+                g = next_node[1]
+                expand[x][y] = count
+                count += 1
+                
+                if x == goal[0] and y == goal[1]:
+                    self.total_cost = g
+                    found = True
+                else:
+                    for i in range(len(self.delta)):
+                        x2 = x + self.delta[i][0]
+                        y2 = y + self.delta[i][1]
+                        #check if it is a valid move 
+                        if 0 <= x2 < rows and 0 <= y2 < cols:
+                            #check if the cell has been explored 
+                            if explored[x2][y2] == 0 and grid[x2][y2] != '#':
+                                g2 = g +  self.delta_cost[i]
+                                h2 = heuristic[x2][y2]
+                                f = g2 +h2
+                                frontier.append([f,g2,h2, x2, y2])
+                                explored[x2][y2] = 1
+                                action[x2][y2] = i
+        #print(expand)
+        #print(action)
+        moves =[]
+        if pickup:
+            x = goal[0]
+            y = goal[1]
+            moves.append('lift '+grid[x][y])
+            while x != start[0] and y != start[1]:
+                x2 = x - self.delta[action[x][y]][0]
+                y2 = y - self.delta[action[x][y]][1]
+                moves.append('move '+self.delta_directions[action[x][y]])
+                #x2 and y2 is used so that action [x][y] is using the original values without modification 
+                x = x2
+                y = y2
+            moves.reverse()
+            return moves
+        else:
+            x = goal[0]
+            y = goal[1]
+            moves.append('down '+self.delta_directions[action[x][y]])
+            while x != start[0] and y != start[1]:
+                x2 = x - self.delta[action[x][y]][0]
+                y2 = y - self.delta[action[x][y]][1]
+                moves.append('move '+self.delta_directions[action[x2][y2]])
+                #x2 and y2 is used so that action [x][y] is using the original values without modification 
+                x = x2
+                y = y2
         # Find and fill in the required moves per the instructions - example moves for test case 1
-        moves = ['move w',
-                 'move nw',
-                 'lift 1',
-                 'move se',
-                 'down e',
-                 'move ne',
-                 'lift 2',
-                 'down s']
-
-        return moves
+        #moves = ['move w',
+        #         'move nw',
+        #         'lift 1',
+        #         'move se',
+        #         'down e',
+        #         'move ne',
+        #         'lift 2',
+        #         'down s']
+            
+            
+            moves.reverse()
+            return moves
+    
+    def heuristic(self, goal):
+        heuristic = [[0 for col in range(len(self.warehouse_state[0]))] for row in range(len(self.warehouse_state))]
+        for i in range(len(self.warehouse_state)):
+            for j in range(len(self.warehouse_state[0])):
+                heuristic [i][j] = round(((i-goal[0])**2 + (j-goal[1])**2 )**0.5,2)
+        
+        return heuristic
+                
+        
+    def find_location(self, symbol):
+        for i in range(len(self.warehouse_state)):
+            for j in range(len(self.warehouse_state[0])):
+                if self.warehouse_state[i][j] == symbol:
+                    return [i,j]
+        
+        return 'fail to find the location'
+                
 
     def plan_delivery(self, debug=False):
         """
@@ -173,8 +275,15 @@ class DeliveryPlanner_PartA:
         # If you use _search(), you may need to modify it to take some
         # additional arguments for starting location, goal location, and
         # whether to pick up or deliver a box.
-
-        moves = self._search(debug=debug)
+        start = self.find_location('*')
+        goal_1 = self.find_location(self.todo[0])
+        goal_2 =  self.find_location(self.todo[1])
+        
+        move_to_1 = self._search(start, goal_1,debug=debug)
+        move_from_1 = self._search(goal_1, start,pickup=False)
+        move_to_2 = self._search(start, goal_2,debug=debug)
+        move_from_2= self._search(goal_2, start,pickup=False)
+        moves = move_to_1 + move_from_1 + move_to_2 + move_from_2
 
         if debug:
             for i in range(len(moves)):
@@ -542,7 +651,7 @@ class DeliveryPlanner_PartC:
 
 def who_am_i():
     # Please specify your GT login ID in the whoami variable (ex: jsmith321).
-    whoami = ''
+    whoami = 'ajar3'
     return whoami
 
 
