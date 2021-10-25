@@ -35,7 +35,7 @@ from opensimplex import OpenSimplex
 # number to match your computer's speed to that of the
 # VM used by GradeScope
 ########################################################################
-TIME_LIMIT = 7 # seconds
+TIME_LIMIT = 15 # seconds
 
 ########################################################################
 # Additional flags for debug output and visualization
@@ -49,7 +49,7 @@ PLOT_MAP = False  # False for grading  (True for map coloring in part A )
 # Toggles for different parts of the assignment
 ########################################################################
 PART_A = True  # Enable/disable Part A (Estimation) - True for grading
-PART_B = False  # Enable/disable Part B (Steering) - True for grading
+PART_B = True  # Enable/disable Part B (Steering) - True for grading
 
 ########################################################################
 # If your debugger does not handle multiprocess debugging very easily
@@ -586,7 +586,7 @@ class GliderSimulator(object):
             while steps < params['max_steps']:
                 target_meas = target.sense()
                 target_height = target.get_height()
-                result = next_angle(target_height, target_meas, studentMapFunc, other_info)
+                result = next_angle(target_height, target_meas, studentMapFunc, other_info,target.x,target.y)
                 if len(result) == 3:
                     steering, other_info, extra_points = result
                 elif len(result) == 2:
