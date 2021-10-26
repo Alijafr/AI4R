@@ -127,7 +127,7 @@ class DeliveryPlanner_PartA:
         self.robot_position = self.dropzone
         self.box_held = None
 
-    def _search(self, start, goal, pickup=True, debug=False):
+    def _search(self, goal, pickup=True, debug=False):
         """
         This method should be based on lesson modules for A*, see Search, Section 12-14.
         The bulk of the search logic should reside here, should you choose to use this starter code.
@@ -135,13 +135,22 @@ class DeliveryPlanner_PartA:
         You may change this function signature (i.e. add arguments) as 
         necessary, except for the debug argument which must remain with a default of False
         """
+        # Find and fill in the required moves per the instructions - example moves for test case 1
+        #moves = ['move w',
+        #         'move nw',
+        #         'lift 1',
+        #         'move se',
+        #         'down e',
+        #         'move ne',
+        #         'lift 2',
+        #         'down s']
 
         # get a shortcut variable for the warehouse (note this is just a view no copying)
         grid = self.warehouse_state
         rows = len(self.warehouse_state)
         cols = len(self.warehouse_state[0])
         
-        #start = self.find_location('*')
+        start = self.find_location('*')
         #goal = self.find_location()
         heuristic = self.heuristic(goal)
         
@@ -196,44 +205,38 @@ class DeliveryPlanner_PartA:
                                 action[x2][y2] = i
         #print(expand)
         #print(action)
+        x_current = start[0]
+        y_current = start[1]
         moves =[]
-        if pickup:
-            x = goal[0]
-            y = goal[1]
+        x = goal[0]
+        y = goal[1]
+        if pickup:    
             moves.append('lift '+grid[x][y])
-            while x != start[0] and y != start[1]:
-                x2 = x - self.delta[action[x][y]][0]
-                y2 = y - self.delta[action[x][y]][1]
-                moves.append('move '+self.delta_directions[action[x][y]])
-                #x2 and y2 is used so that action [x][y] is using the original values without modification 
-                x = x2
-                y = y2
-            moves.reverse()
-            return moves
         else:
-            x = goal[0]
-            y = goal[1]
             moves.append('down '+self.delta_directions[action[x][y]])
-            while x != start[0] and y != start[1]:
-                x2 = x - self.delta[action[x][y]][0]
-                y2 = y - self.delta[action[x][y]][1]
-                moves.append('move '+self.delta_directions[action[x2][y2]])
-                #x2 and y2 is used so that action [x][y] is using the original values without modification 
-                x = x2
-                y = y2
-        # Find and fill in the required moves per the instructions - example moves for test case 1
-        #moves = ['move w',
-        #         'move nw',
-        #         'lift 1',
-        #         'move se',
-        #         'down e',
-        #         'move ne',
-        #         'lift 2',
-        #         'down s']
+        #but the actual goal is to stand on one grid before the desired goal
+        x2 = x - self.delta[action[x][y]][0]
+        y2 = y - self.delta[action[x][y]][1]
+        self.warehouse_state[start[0]][start[1]] = '.'
+        self.warehouse_state[x2][y2] = '*'
+        x_current = x2
+        y_current = y2
+        x = x2
+        y = y2
+        while [x,y] != start:
+            moves.append('move '+self.delta_directions[action[x][y]])
+            x2 = x - self.delta[action[x][y]][0]
+            y2 = y - self.delta[action[x][y]][1]
+            #x2 and y2 is used so that action [x][y] is using the original values without modification
+            x = x2
+            y = y2
+        moves.reverse()
+        return moves, [x_current,y_current]
+          
+        
             
             
-            moves.reverse()
-            return moves
+            
     
     def heuristic(self, goal):
         heuristic = [[0 for col in range(len(self.warehouse_state[0]))] for row in range(len(self.warehouse_state))]
@@ -275,14 +278,15 @@ class DeliveryPlanner_PartA:
         # If you use _search(), you may need to modify it to take some
         # additional arguments for starting location, goal location, and
         # whether to pick up or deliver a box.
-        start = self.find_location('*')
+        current_location = self.find_location('*')
+        drop_off = current_location
         goal_1 = self.find_location(self.todo[0])
         goal_2 =  self.find_location(self.todo[1])
         
-        move_to_1 = self._search(start, goal_1,debug=debug)
-        move_from_1 = self._search(goal_1, start,pickup=False)
-        move_to_2 = self._search(start, goal_2,debug=debug)
-        move_from_2= self._search(goal_2, start,pickup=False)
+        move_to_1,current_location = self._search(goal_1,debug=debug)
+        move_from_1, current_location = self._search(drop_off,pickup=False)
+        move_to_2, current_location= self._search(goal_2,debug=debug)
+        move_from_2, current_location= self._search(drop_off,pickup=False)
         moves = move_to_1 + move_from_1 + move_to_2 + move_from_2
 
         if debug:
