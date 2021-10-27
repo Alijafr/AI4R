@@ -127,7 +127,7 @@ class DeliveryPlanner_PartA:
         self.robot_position = self.dropzone
         self.box_held = None
 
-    def _search(self, goal, pickup=True, debug=False):
+    def _search(self, goal, drop_off, pickup=True, debug=False):
         """
         This method should be based on lesson modules for A*, see Search, Section 12-14.
         The bulk of the search logic should reside here, should you choose to use this starter code.
@@ -146,11 +146,16 @@ class DeliveryPlanner_PartA:
         #         'down s']
 
         # get a shortcut variable for the warehouse (note this is just a view no copying)
+        start = self.find_location('*')
+        x_current = start[0]
+        y_current = start[1]
+        if start == goal:
+            return []
         grid = self.warehouse_state
         rows = len(self.warehouse_state)
         cols = len(self.warehouse_state[0])
-        
-        start = self.find_location('*')
+       
+        goal_character = grid[goal[0]][goal[1]]
         #goal = self.find_location()
         heuristic = self.heuristic(goal)
         
@@ -175,7 +180,7 @@ class DeliveryPlanner_PartA:
         while not found and not resign:
             if len(frontier) == 0:
                 resign = True
-                return "Fail"
+                return "Fail",[x_current,y_current]
             else:
                 frontier.sort()
                 frontier.reverse() #we reverse because pop() pops from the end 
@@ -196,7 +201,7 @@ class DeliveryPlanner_PartA:
                         #check if it is a valid move 
                         if 0 <= x2 < rows and 0 <= y2 < cols:
                             #check if the cell has been explored 
-                            if explored[x2][y2] == 0 and grid[x2][y2] != '#':
+                            if explored[x2][y2] == 0 and (grid[x2][y2] == '.' or grid[x2][y2] == goal_character) :
                                 g2 = g +  self.delta_cost[i]
                                 h2 = heuristic[x2][y2]
                                 f = g2 +h2
@@ -205,22 +210,27 @@ class DeliveryPlanner_PartA:
                                 action[x2][y2] = i
         #print(expand)
         #print(action)
-        x_current = start[0]
-        y_current = start[1]
+        self.warehouse_state[start[0]][start[1]] = '.'
+        self.warehouse_state[goal[0]][goal[1]] = '.'
         moves =[]
         x = goal[0]
         y = goal[1]
-        if pickup:    
-            moves.append('lift '+grid[x][y])
-        else:
-            moves.append('down '+self.delta_directions[action[x][y]])
         #but the actual goal is to stand on one grid before the desired goal
         x2 = x - self.delta[action[x][y]][0]
         y2 = y - self.delta[action[x][y]][1]
-        self.warehouse_state[start[0]][start[1]] = '.'
-        self.warehouse_state[x2][y2] = '*'
         x_current = x2
         y_current = y2
+        #check if the current position is the drop_off, if yes the robot need to move to goal to be able to drop off the box
+        if [x_current,y_current] == drop_off:   
+           self.warehouse_state[goal[0]][goal[1]] = '*'
+           moves.append('move '+self.delta_directions[action[x][y]])
+        else:
+            self.warehouse_state[x2][y2] = '*'
+        
+        if pickup:    
+            moves.append('lift '+goal_character)
+        else:
+            moves.append('down '+self.delta_directions[action[x][y]])
         x = x2
         y = y2
         while [x,y] != start:
@@ -280,14 +290,14 @@ class DeliveryPlanner_PartA:
         # whether to pick up or deliver a box.
         current_location = self.find_location('*')
         drop_off = current_location
-        goal_1 = self.find_location(self.todo[0])
-        goal_2 =  self.find_location(self.todo[1])
         
-        move_to_1,current_location = self._search(goal_1,debug=debug)
-        move_from_1, current_location = self._search(drop_off,pickup=False)
-        move_to_2, current_location= self._search(goal_2,debug=debug)
-        move_from_2, current_location= self._search(drop_off,pickup=False)
-        moves = move_to_1 + move_from_1 + move_to_2 + move_from_2
+        moves = []
+        for goal in self.todo:
+            goal = self.find_location(goal)
+            move_to_goal,current_location = self._search(goal,drop_off,debug=debug)
+            moves += move_to_goal
+            drop_off_goal, current_location = self._search(drop_off,drop_off,pickup=False)
+            moves += drop_off_goal
 
         if debug:
             for i in range(len(moves)):

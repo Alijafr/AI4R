@@ -407,6 +407,16 @@ class PartATestCase(unittest.TestCase):
                   'min_cost': 30.0}
 
         self.run_with_params(params)
+    # Test case 11 
+    def test_case_11(self):
+        params = {'test_case': 11,
+                  'warehouse':['@..',
+                              '.2.',
+                              '..1'],
+                  'todo': ['1', '2'],
+                  'min_cost': 35.0}
+       
+        self.run_with_params(params)
 
 
 # Only run all of the test automatically if this file was executed from the command line.
