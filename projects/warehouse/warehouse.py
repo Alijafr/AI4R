@@ -423,13 +423,7 @@ class DeliveryPlanner_PartB:
         ##############################################################################
         # insert code in this method if using the starter code we've provided
         ##############################################################################
-
-        # get a shortcut variable for the warehouse (note this is just a view it does not make a copy)
-        grid = self.warehouse_state
-        grid_costs = self.warehouse_cost
-
-        # You will need to fill in the algorithm here to find the policy
-        # The following are what your algorithm should return for test case 1
+        '''
         if pickup_box:
             # To box policy
             policy = [['B', 'lift 1', 'move w'],
@@ -441,8 +435,44 @@ class DeliveryPlanner_PartB:
             policy = [['move e', 'move se', 'move s'],
                       ['move ne', '-1', 'down s'],
                       ['move e', 'down e', 'move n']]
+        '''
+        # get a shortcut variable for the warehouse (note this is just a view it does not make a copy)
+        grid = self.warehouse_state
+        grid_costs = self.warehouse_cost
 
+        # You will need to fill in the algorithm here to find the policy
+        # The following are what your algorithm should return for test case 1
+        policy = [['-1' for col in range(len(grid[0]))] for row in range(len(grid))]
+        value = [[self.ILLEGAL_MOVE_PENALTY for row in range(len(grid[0]))] for col in range(len(grid))]
+        change = True
+        
+        while change:
+            change = False
+        
+            for x in range(len(grid)):
+                for y in range(len(grid[0])):
+                    if goal[0] == x and goal[1] == y:
+                        if value[x][y] > 0:
+                            value[x][y] = 0
+                            policy[x][y] = 'B'
+                            change = True
+        
+                    elif grid[x][y] == '.':
+                        for a in range(len(self.delta)):
+                            x2 = x + self.delta[a][0]
+                            y2 = y + self.delta[a][1]
+        
+                            if x2 >= 0 and x2 < len(grid) and y2 >= 0 and y2 < len(grid[0]) and grid[x2][y2] == '.':
+                                v2 =  self.delta_cost[a] + grid_costs[x2][y2]
+        
+                                if v2 < value[x][y]:
+                                    change = True
+                                    value[x][y] = v2
+                                    policy[x][y] = self.delta_directions[a]
+        
         return policy
+        
+        
 
     def plan_delivery(self, debug=False):
         """
