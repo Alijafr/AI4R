@@ -402,12 +402,12 @@ class DeliveryPlanner_PartB:
 
                 elif this_square == '@':
                     self.warehouse_state[i][j] = '*'
-                    self.dropzone = (i, j)
+                    self.dropzone = [i, j]
 
                 else:  # a box
                     box_id = this_square
                     self.warehouse_state[i][j] = box_id
-                    self.boxes[box_id] = (i, j)
+                    self.boxes[box_id] = [i, j]
 
     def _find_policy(self, goal, pickup_box=True, debug=False):
         """
@@ -439,11 +439,11 @@ class DeliveryPlanner_PartB:
         # get a shortcut variable for the warehouse (note this is just a view it does not make a copy)
         grid = self.warehouse_state
         grid_costs = self.warehouse_cost
-
+        goal_character = grid[goal[0]][goal[1]]
         # You will need to fill in the algorithm here to find the policy
         # The following are what your algorithm should return for test case 1
         policy = [['-1' for col in range(len(grid[0]))] for row in range(len(grid))]
-        value = [[self.ILLEGAL_MOVE_PENALTY for row in range(len(grid[0]))] for col in range(len(grid))]
+        value = [[ math.inf for row in range(len(grid[0]))] for col in range(len(grid))]
         change = True
         
         while change:
@@ -457,19 +457,42 @@ class DeliveryPlanner_PartB:
                             policy[x][y] = 'B'
                             change = True
         
-                    elif grid[x][y] == '.':
+                    elif grid[x][y] != '#':
                         for a in range(len(self.delta)):
                             x2 = x + self.delta[a][0]
                             y2 = y + self.delta[a][1]
         
-                            if x2 >= 0 and x2 < len(grid) and y2 >= 0 and y2 < len(grid[0]) and grid[x2][y2] == '.':
-                                v2 =  self.delta_cost[a] + grid_costs[x2][y2]
+                            if x2 >= 0 and x2 < len(grid) and y2 >= 0 and y2 < len(grid[0]) and grid[x2][y2] != '#':
+                                v2 =  value[x2][y2]+self.delta_cost[a] + grid_costs[x][y]
         
                                 if v2 < value[x][y]:
                                     change = True
                                     value[x][y] = v2
-                                    policy[x][y] = self.delta_directions[a]
+                                    if [x2,y2]==goal:
+                                        if pickup_box:
+                                            policy[x][y] = 'lift '+ goal_character
+                                        else:
+                                            policy[x][y] = 'down '+ self.delta_directions[a]
+                                    else:    
+                                        policy[x][y] = 'move ' + self.delta_directions[a]
+                                    
         
+        if not pickup_box:
+            #change the policy for the dropoff zone
+            x = goal[0]
+            y = goal[1]
+            less_cost = math.inf
+            for a in range(len(self.delta)):
+                x2 = x + self.delta[a][0]
+                y2 = y + self.delta[a][1]
+
+                if x2 >= 0 and x2 < len(grid) and y2 >= 0 and y2 < len(grid[0]) and grid[x2][y2] != '#':
+                    v2 =  self.delta_cost[a] + grid_costs[x2][y2]
+
+                    if v2 < less_cost:
+                        less_cost = v2
+                        policy[x][y] = 'move ' + self.delta_directions[a]
+        #print(value)
         return policy
         
         
@@ -554,6 +577,7 @@ class DeliveryPlanner_PartC:
         self._set_initial_state_from(warehouse)
         self.warehouse_cost = warehouse_cost
         self.p_outcomes = p_outcomes
+        
 
         self.delta = [
             [-1, 0],  # go up
@@ -603,12 +627,12 @@ class DeliveryPlanner_PartC:
 
                 elif this_square == '@':
                     self.warehouse_state[i][j] = '*'
-                    self.dropzone = (i, j)
+                    self.dropzone = [i, j]
 
                 else:  # a box
                     box_id = this_square
                     self.warehouse_state[i][j] = box_id
-                    self.boxes[box_id] = (i, j)
+                    self.boxes[box_id] = [i, j]
 
     def _find_policy(self, goal, pickup_box=True, debug=False):
         """
@@ -625,30 +649,89 @@ class DeliveryPlanner_PartC:
         # insert code in this method if using the starter code we've provided
         ##############################################################################
 
+        '''
+        if pickup_box:
+            # To box policy
+            policy = [['B', 'lift 1', 'move w'],
+                      ['lift 1', '-1', 'move nw'],
+                      ['move n', 'move nw', 'move n']]
+
+        else:
+            # Deliver policy
+            policy = [['move e', 'move se', 'move s'],
+                      ['move ne', '-1', 'down s'],
+                      ['move e', 'down e', 'move n']]
+        '''
         # get a shortcut variable for the warehouse (note this is just a view it does not make a copy)
         grid = self.warehouse_state
         grid_costs = self.warehouse_cost
-
+        goal_character = grid[goal[0]][goal[1]]
         # You will need to fill in the algorithm here to find the policy
         # The following are what your algorithm should return for test case 1
-        if pickup_box:
-            # To-box policy
-            # the below policy is hard coded to work for test case 1
-            policy = [
-                ['B', 'lift 1', 'move w'],
-                ['lift 1', -1, 'move nw'],
-                ['move n', 'move nw', 'move n'],
-            ]
+        policy = [['-1' for col in range(len(grid[0]))] for row in range(len(grid))]
+        value = [[ 200*self.ILLEGAL_MOVE_PENALTY for row in range(len(grid[0]))] for col in range(len(grid))]
+        change = True
+        
+        while change:
+            change = False
+        
+            for x in range(len(grid)):
+                for y in range(len(grid[0])):
+                    if goal[0] == x and goal[1] == y:
+                        if value[x][y] > 0:
+                            value[x][y] = 0
+                            policy[x][y] = 'B'
+                            change = True
+        
+                    elif grid[x][y] != '#':
+                        for a in range(len(self.delta)):
+                            v2 = 0 
+                            for i in range(-2,3): #3 is not included
+                                a2 = (a+i)%len(self.delta)
+                                x2 = x + self.delta[a2][0]
+                                y2 = y + self.delta[a2][1]
+                                if i == 0:
+                                    p = self.p_outcomes['success']
+                                elif i == -1 or i== 1:
+                                    p = self.p_outcomes['fail_slanted']
+                                else:
+                                    p = self.p_outcomes['fail_sideways']
+                                
+                                if x2 >= 0 and x2 < len(grid) and y2 >= 0 and y2 < len(grid[0]) and grid[x2][y2] != '#':
+                                    v2 += p*(value[x2][y2] + self.delta_cost[a2] + grid_costs[x][y])
+                                else:
+                                    v2 += p*(value[x][y] + self.delta_cost[a2] + self.ILLEGAL_MOVE_PENALTY)
+                            
+                            if v2 < value[x][y]:
+                                #edit x2,y2 so that they are the intended move
+                                x2 = x + self.delta[a][0]
+                                y2 = y + self.delta[a][1]
+                                change = True
+                                value[x][y] = v2
+                                if [x2,y2]==goal:
+                                    if pickup_box:
+                                        policy[x][y] = 'lift '+ goal_character
+                                    else:
+                                        policy[x][y] = 'down '+ self.delta_directions[a]
+                                else:    
+                                    policy[x][y] = 'move ' + self.delta_directions[a]                            
+        
+        if not pickup_box:# to choose the best move when the robot is in the drop zone
+            #change the policy for the dropoff zone
+            x = goal[0]
+            y = goal[1]
+            less_cost = math.inf
+            for a in range(len(self.delta)):
+                x2 = x + self.delta[a][0]
+                y2 = y + self.delta[a][1]
 
-        else:
-            # to-zone policy
-            # the below policy is hard coded to work for test case 1
-            policy = [
-                ['move e', 'move se', 'move s'],
-                ['move se', -1, 'down s'],
-                ['move e', 'down e', 'move n'],
-            ]
+                if x2 >= 0 and x2 < len(grid) and y2 >= 0 and y2 < len(grid[0]) and grid[x2][y2] != '#':
+                    v2 =  self.delta_cost[a] + grid_costs[x2][y2]
 
+                    if v2 < less_cost:
+                        less_cost = v2
+                        policy[x][y] = 'move ' + self.delta_directions[a]
+        
         return policy
 
     def plan_delivery(self, debug=False):
@@ -711,48 +794,57 @@ if __name__ == "__main__":
 
     # Testing for Part A
     # testcase 1
-    print('\nTesting for part A:')
-    warehouse = ['1#2',
-                 '.#.',
-                 '..@']
+    # print('\nTesting for part A:')
+    # warehouse = ['1#2',
+    #              '.#.',
+    #              '..@']
 
-    todo = ['1', '2']
+    # todo = ['1', '2']
 
-    partA = DeliveryPlanner_PartA(warehouse, todo)
-    partA.plan_delivery(debug=True)
+    # partA = DeliveryPlanner_PartA(warehouse, todo)
+    # partA.plan_delivery(debug=True)
 
-    # Testing for Part B
-    # testcase 1
-    print('\nTesting for part B:')
-    warehouse = ['1..',
-                 '.#.',
-                 '..@']
+    # # Testing for Part B
+    # # testcase 1
+    # print('\nTesting for part B:')
+    # warehouse = ['1..',
+    #              '.#.',
+    #              '..@']
 
-    warehouse_cost = [[3, 5, 2],
-                      [10, math.inf, 2],
-                      [2, 10, 2]]
+    # warehouse_cost = [[3, 5, 2],
+    #                   [10, math.inf, 2],
+    #                   [2, 10, 2]]
 
-    todo = ['1']
+    # todo = ['1']
 
-    partB = DeliveryPlanner_PartB(warehouse, warehouse_cost, todo)
-    partB.plan_delivery(debug=True)
+    # partB = DeliveryPlanner_PartB(warehouse, warehouse_cost, todo)
+    # partB.plan_delivery(debug=True)
 
     # Testing for Part C
     # testcase 1
     print('\nTesting for part C:')
+    # warehouse = ['1..',
+    #              '.#.',
+    #              '..@']
+
+    # warehouse_cost = [[13, 5, 6],
+    #                   [10, math.inf, 2],
+    #                   [2, 11, 2]]
+
+    # todo = ['1']
+
+    # p_outcomes = {'success': .70,
+    #               'fail_slanted': .1,
+    #               'fail_sideways': .05, }
     warehouse = ['1..',
-                 '.#.',
-                 '..@']
-
+                  '.#.',
+                  '..@']
     warehouse_cost = [[13, 5, 6],
-                      [10, math.inf, 2],
-                      [2, 11, 2]]
-
+                       [10, math.inf, 2],
+                       [2, 11, 2]]
     todo = ['1']
-
-    p_outcomes = {'success': .70,
-                  'fail_slanted': .1,
-                  'fail_sideways': .05, }
-
+    p_outcomes = {'success': .2,
+                  'fail_slanted': .26667,
+                  'fail_sideways': .13333, }
     partC = DeliveryPlanner_PartC(warehouse, warehouse_cost, todo, p_outcomes)
     partC.plan_delivery(debug=True)

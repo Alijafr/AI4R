@@ -31,7 +31,7 @@ except Exception as e:
 # For debugging this flag can be set to True to print state 
 # which could result in a timeout
 ########################################################################
-VERBOSE_FLAG = True
+VERBOSE_FLAG = False
 
 ########################################################################
 # For debugging set the time limit to a big number (like 600 or more)
