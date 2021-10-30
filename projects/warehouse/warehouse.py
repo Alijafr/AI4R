@@ -662,6 +662,9 @@ class DeliveryPlanner_PartC:
                       ['move ne', '-1', 'down s'],
                       ['move e', 'down e', 'move n']]
         '''
+        '''
+        NOTE: Skelton code was obtained from Sebastian Thrun lectures in dynamic programming
+        '''
         # get a shortcut variable for the warehouse (note this is just a view it does not make a copy)
         grid = self.warehouse_state
         grid_costs = self.warehouse_cost
@@ -685,7 +688,20 @@ class DeliveryPlanner_PartC:
         
                     elif grid[x][y] != '#':
                         for a in range(len(self.delta)):
-                            v2 = 0 
+                            #calculate the best value of cell [x,y] comming of all possible actions 
+                            
+                            #step 1: calculate the intended action, if it reach to the goal then the action is deterministic 
+                            intended_x = x + self.delta[a][0]
+                            intended_y = y + self.delta[a][1]
+                            #remember that pickup and droping the box is deterministic actions, no need for probabilies
+                            if [intended_x,intended_y] == goal:
+                                if pickup_box:
+                                    policy[x][y] = 'lift '+ goal_character
+                                else:
+                                    policy[x][y] = 'down '+ self.delta_directions[a]
+                            #step 2: calculate the value for each action given the p_outcomes     
+                            v2 = 0
+                            # best_action = a
                             for i in range(-2,3): #3 is not included
                                 a2 = (a+i)%len(self.delta)
                                 x2 = x + self.delta[a2][0]
@@ -701,19 +717,12 @@ class DeliveryPlanner_PartC:
                                     v2 += p*(value[x2][y2] + self.delta_cost[a2] + grid_costs[x][y])
                                 else:
                                     v2 += p*(value[x][y] + self.delta_cost[a2] + self.ILLEGAL_MOVE_PENALTY)
-                            
+                            #step 3: choose the lowest value 
                             if v2 < value[x][y]:
                                 #edit x2,y2 so that they are the intended move
-                                x2 = x + self.delta[a][0]
-                                y2 = y + self.delta[a][1]
                                 change = True
                                 value[x][y] = v2
-                                if [x2,y2]==goal:
-                                    if pickup_box:
-                                        policy[x][y] = 'lift '+ goal_character
-                                    else:
-                                        policy[x][y] = 'down '+ self.delta_directions[a]
-                                else:    
+                                if [intended_x,intended_y] != goal: #the pickup and droping off is determinisic 
                                     policy[x][y] = 'move ' + self.delta_directions[a]                            
         
         if not pickup_box:# to choose the best move when the robot is in the drop zone
@@ -731,7 +740,8 @@ class DeliveryPlanner_PartC:
                     if v2 < less_cost:
                         less_cost = v2
                         policy[x][y] = 'move ' + self.delta_directions[a]
-        
+            
+        #print(policy)
         return policy
 
     def plan_delivery(self, debug=False):
