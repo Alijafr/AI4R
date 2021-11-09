@@ -106,7 +106,7 @@ def q5_stochastic_motion(grid, goal, cost_step, collision_cost, success_prob):
 
     # Be sure to fix or replace the following two initialization lines with the
     # correct initialization of value and policy
-    value = [[collision_cost for col in range(len(grid[0]))] for row in range(len(grid))]
+    value = [[3*collision_cost for col in range(len(grid[0]))] for row in range(len(grid))]
     policy = [[' ' for col in range(len(grid[0]))] for row in range(len(grid))]
 
     change = True
@@ -329,25 +329,45 @@ def q5_check_output(values, expected):
     return ret_val
 
 
-CODE_TEST_CASES = ({'function_name': 'q5_stochastic_motion',
-                    'function_input': dict( grid = [[0,0,0,0],
-                                                    [0,0,0,0],
-                                                    [0,0,0,0],
-                                                    [0,1,1,0]],
-                                             goal = [0, 3],
-                                             cost_step = 1,
-                                             collision_cost = 100,
-                                             success_prob = 0.5),
-                    'expected_output': ( [[57.9029, 40.2784, 26.0665, 0.0000],
-                                          [47.0547, 36.5722, 29.9937, 27.2698],
-                                          [53.1715, 42.0228, 37.7755, 45.0916],
-                                          [77.5858, 100.00, 100.00, 73.5458]],
-                                          [['>', 'v', 'v', '*'],
-                                           ['>', '>', '^', '<'],
-                                           ['>', '^', '^', '<'],
-                                           ['^', ' ', ' ', '^']]),
-                    'outputs_match_func': q5_check_output,
-                    'output_to_str_func': format_policy_output}, )
+# CODE_TEST_CASES = ({'function_name': 'q5_stochastic_motion',
+#                     'function_input': dict( grid = [[0,0,0,0],
+#                                                     [0,0,0,0],
+#                                                     [0,0,0,0],
+#                                                     [0,1,1,0]],
+#                                              goal = [0, 3],
+#                                              cost_step = 1,
+#                                              collision_cost = 100,
+#                                              success_prob = 0.5),
+#                     'expected_output': ( [[57.9029, 40.2784, 26.0665, 0.0000],
+#                                           [47.0547, 36.5722, 29.9937, 27.2698],
+#                                           [53.1715, 42.0228, 37.7755, 45.0916],
+#                                           [77.5858, 100.00, 100.00, 73.5458]],
+#                                           [['>', 'v', 'v', '*'],
+#                                            ['>', '>', '^', '<'],
+#                                            ['>', '^', '^', '<'],
+#                                            ['^', ' ', ' ', '^']]),
+#                     'outputs_match_func': q5_check_output,
+#                     'output_to_str_func': format_policy_output}, )
+CODE_TEST_CASES = ({
+    'function_name': 'q5_stochastic_motion',
+    'function_input': dict( grid = [[0,1,0],
+                                [0,1,0],
+                                [0,0,0],]
+                                ,
+                         goal = [0, 2],
+                         cost_step = 20,
+                         collision_cost = 100,
+                         success_prob = 1),
+    'expected_output': ( [[120.0000, 100.0000, 0.0000],
+                      [100.0000, 100.0000,20.0000],
+                      [80.0000,60.0000,40.0000],]
+                      ,
+                      [['v', ' ', '*'],
+                       ['v', ' ', '^'],
+                       ['>', '>', '^'],]
+                       ),
+    'outputs_match_func': q5_check_output,
+    'output_to_str_func': format_policy_output},)
                      
 if __name__ == '__main__':
     import checkutil
