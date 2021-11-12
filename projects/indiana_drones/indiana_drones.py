@@ -43,6 +43,7 @@
 """
 
 from typing import Dict, List
+from matrix import *
 
 # If you see different scores locally and on Gradescope this may be an indication
 # that you are uploading a different file than the one you are executing locally.
@@ -60,8 +61,19 @@ class SLAM:
     def __init__(self):
         """Initialize SLAM components here.
         """
-        # TODO
-
+        self.first_init = True 
+        self.drone_yaw = 0.0
+        self.xi = matrix()
+        self.omega = matrix()
+        #the robot start at 0, 0
+        self.omega.zero(2, 2) #for initial x,y
+        self.omega[0][0] = 1.
+        self.omega[1][1] = 1.
+        
+        self.xi.zero(2, 1)# start from x=0 , y= 0
+        
+        self.measurement_noise = 1 # the more, the less trust we have in the measurement
+        self.motion_noise = 1 # the more, the less trust we have in the motion
     # Provided Functions
     def get_coordinates(self):
         """
@@ -93,7 +105,30 @@ class SLAM:
         Returns:
             (x, y): current belief in location of the drone in meters
         """
-        # TODO:
+        #need to check if the landmarks already exit
+        
+        
+        for i in range(len(measurement)):
+            #m is the index of the landmark coordinate in the matrix/vector 
+            m = 2*(1+measurement[i][0])
+            
+            #update teh information matrix/vector based on the measurement
+            #the divison over the noise gives the confidence of the measurement (weight)
+            for b in range(2):
+                Omega.value[b][b] += 1.0/measurement_noise
+                Omega.value[m+b][m+b] += 1.0/measurement_noise
+                Omega.value[b][m+b] += -1.0/measurement_noise
+                Omega.value[m+b][b] += -1.0/measurement_noise
+                Xi.value[b][0] += -measurement[i][1+b]/measurement_noise
+                Xi.value[m+b][0] += measurement[i][1+b]/measurement_noise
+            
+        #expand the infromation matrix and vector by one new position 
+        list_ = [0,1] + list(range(4,dim+2))
+        Omega = Omega.expand(dim+2, dim+2, list_, list_)
+        Xi = Xi.expand(dim+2, 1, list_,[0])
+        
+       
+        mu = Omega.inverse() * Xi
 
         return (0.0, 0.0)
 
@@ -108,7 +143,49 @@ class SLAM:
         Returns:
             (x, y): current belief in location of the drone in meters
         """
-        # TODO:
+        # Set the dimension of the filter 
+        dim = 2 *(1 + num_landmarks)
+        
+        #make the contraint information matrix and vector 
+        self.omega = matrix()
+        self.omega.zero(dim, dim)
+        self.omega.value[0][0] = 1.0 #first x constraint
+        self.omega.value[1][1] = 1.0 #first y constraint 
+        
+        self.xi = matrix()
+        self.xi.zero(dim, 1)
+        #robot starts in the middle of the map
+        Xi.value[0][0] = world_size/2.0
+        Xi.value[1][0] = world_size/2.0
+        
+        #process the data 
+        
+      
+            
+        motion = data[k][1]
+        
+            
+        #update the information matrix/vector based on teh robot motion
+        for b in range(4):
+            Omega.value[b][b] += 1.0/motion_noise
+        for b in range(2):
+            Omega.value[b][b+2] += -1.0/motion_noise
+            Omega.value[b+2][b] += -1.0/motion_noise
+            Xi.value[b][0] += -motion[b]/motion_noise
+            Xi.value[b+2][0] += motion[b]/motion_noise
+            
+        #now factor out the preious pose 
+        # omega_reduced = omega - A.transpose * B.inverse *A
+        newlist = range(2,len(Omega.value))
+        A = Omega.take([0,1],newlist)
+        B = Omega.take([0,1])
+        C = Xi.take([0,1],[0])
+        
+        Omega = Omega.take(newlist)-A.transpose()*B.inverse()*A
+        Xi = Xi.take(newlist,[0]) - A.transpose()*B.inverse()*C
+        
+       
+        mu = Omega.inverse() * Xi
 
         return (0.0, 0.0)
 
@@ -163,5 +240,5 @@ class IndianaDronesPlanner:
 
 def who_am_i():
     # Please specify your GT login ID in the whoami variable (ex: jsmith321).
-    whoami = ''
+    whoami = 'ajar3'
     return whoami
