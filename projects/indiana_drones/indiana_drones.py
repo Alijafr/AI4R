@@ -44,6 +44,7 @@
 
 from typing import Dict, List
 from matrix import *
+import numpy as np
 
 # If you see different scores locally and on Gradescope this may be an indication
 # that you are uploading a different file than the one you are executing locally.
@@ -72,8 +73,11 @@ class SLAM:
         
         self.xi.zero(2, 1)# start from x=0 , y= 0
         
+        self.mu = matrix()
+        self.mu.zero(2, 1)
+        self.landmarks  = {} #should contain the ids and index number in the omeaga starting from 
         self.measurement_noise = 1 # the more, the less trust we have in the measurement
-        self.motion_noise = 1 # the more, the less trust we have in the motion
+        self.motion_noise = 0.5 # the more, the less trust we have in the motion
     # Provided Functions
     def get_coordinates(self):
         """
@@ -90,9 +94,11 @@ class SLAM:
                         ....
                     }
         """
-        # TODO:
-
-        return {}
+        positions = {}
+        positions['self'] = (self.mu[0][0],self.mu[1][0])
+        for landmark_id in self.landmarks:
+            positions[landmark_id] = (self.mu[self.landmarks[landmark_id]][0],self.mu[self.landmarks[landmark_id]+1][0])
+        return positions
 
     def process_measurements(self, measurements: Dict):
         """
@@ -106,31 +112,40 @@ class SLAM:
             (x, y): current belief in location of the drone in meters
         """
         #need to check if the landmarks already exit
-        
-        
-        for i in range(len(measurement)):
-            #m is the index of the landmark coordinate in the matrix/vector 
-            m = 2*(1+measurement[i][0])
+        for landmark_id in measurements: #interate over the ids of the landmarks 
+            #check if the landmarks is new or existing 
+            dim = self.omega.dimx
+            if landmark_id in self.landmarks:
+                m = self.landmarks[landmark_id]
+            else:
+                #add the new lanmark to the dict, and edit the matrices
+                m = dim 
+                self.landmarks[landmark_id] = m
+                #expand omega
+                list_ = list(range(0,dim))
+                self.omega = self.omega.expand(dim+2, dim+2, list_)
+                self.xi = self.xi.expand(dim+2, 1, list_,[0])
             
+            distance = measurements[landmark_id]['distance']
+            bearing = measurements[landmark_id]['bearing']
+            # type_ = measurements[landmark_id]['type']
+            measurement = (distance*np.cos(bearing+self.drone_yaw),distance*np.sin(bearing+self.drone_yaw))
+            # print("Tree {} is at {}".format(type_,measurement))
             #update teh information matrix/vector based on the measurement
             #the divison over the noise gives the confidence of the measurement (weight)
             for b in range(2):
-                Omega.value[b][b] += 1.0/measurement_noise
-                Omega.value[m+b][m+b] += 1.0/measurement_noise
-                Omega.value[b][m+b] += -1.0/measurement_noise
-                Omega.value[m+b][b] += -1.0/measurement_noise
-                Xi.value[b][0] += -measurement[i][1+b]/measurement_noise
-                Xi.value[m+b][0] += measurement[i][1+b]/measurement_noise
-            
-        #expand the infromation matrix and vector by one new position 
-        list_ = [0,1] + list(range(4,dim+2))
-        Omega = Omega.expand(dim+2, dim+2, list_, list_)
-        Xi = Xi.expand(dim+2, 1, list_,[0])
+                self.omega.value[b][b] += 1.0/self.measurement_noise
+                self.omega.value[m+b][m+b] += 1.0/self.measurement_noise
+                self.omega.value[b][m+b] += -1.0/self.measurement_noise
+                self.omega.value[m+b][b] += -1.0/self.measurement_noise
+                self.xi.value[b][0] += -measurement[b]/self.measurement_noise
+                self.xi.value[m+b][0] += measurement[b]/self.measurement_noise
         
-       
-        mu = Omega.inverse() * Xi
-
-        return (0.0, 0.0)
+        # print(self.landmarks)
+        #self.mu = self.omega.inverse() * self.xi
+        drone_pos = (self.mu[0][0], self.mu[1][0])
+        #print("update from measurements: ", drone_pos)
+        return drone_pos
 
     def process_movement(self, distance: float, steering: float):
         """
@@ -143,51 +158,53 @@ class SLAM:
         Returns:
             (x, y): current belief in location of the drone in meters
         """
-        # Set the dimension of the filter 
-        dim = 2 *(1 + num_landmarks)
+        self.drone_yaw += steering
+        if self.drone_yaw > np.pi:
+            diff = self.drone_yaw - np.pi 
+            self.drone_yaw = diff-np.pi
+        elif self.drone_yaw < -np.pi:
+            diff = self.drone_yaw + np.pi 
+            self.drone_yaw = np.pi + diff
+        #print("angle: ", self.drone_yaw*180/np.pi)
+        dim = self.omega.dimx
         
-        #make the contraint information matrix and vector 
-        self.omega = matrix()
-        self.omega.zero(dim, dim)
-        self.omega.value[0][0] = 1.0 #first x constraint
-        self.omega.value[1][1] = 1.0 #first y constraint 
-        
-        self.xi = matrix()
-        self.xi.zero(dim, 1)
-        #robot starts in the middle of the map
-        Xi.value[0][0] = world_size/2.0
-        Xi.value[1][0] = world_size/2.0
-        
-        #process the data 
-        
+        #expand the infromation matrix and vector by one new position
+        if dim >2:
+            list_ = [0,1] + list(range(4,dim+2))
+        else: 
+            list_ = [0,1]
+        self.omega = self.omega.expand(dim+2, dim+2, list_, list_)
+        self.xi = self.xi.expand(dim+2, 1, list_,[0])
       
             
-        motion = data[k][1]
+        motion= (distance*np.cos(self.drone_yaw),distance*np.sin(self.drone_yaw))
         
+        #print("movement: ",motion)
             
         #update the information matrix/vector based on teh robot motion
         for b in range(4):
-            Omega.value[b][b] += 1.0/motion_noise
+            self.omega.value[b][b] += 1.0/self.motion_noise
         for b in range(2):
-            Omega.value[b][b+2] += -1.0/motion_noise
-            Omega.value[b+2][b] += -1.0/motion_noise
-            Xi.value[b][0] += -motion[b]/motion_noise
-            Xi.value[b+2][0] += motion[b]/motion_noise
+            self.omega.value[b][b+2] += -1.0/self.motion_noise
+            self.omega.value[b+2][b] += -1.0/self.motion_noise
+            self.xi.value[b][0] += -motion[b]/self.motion_noise
+            self.xi.value[b+2][0] += motion[b]/self.motion_noise
             
         #now factor out the preious pose 
         # omega_reduced = omega - A.transpose * B.inverse *A
-        newlist = range(2,len(Omega.value))
-        A = Omega.take([0,1],newlist)
-        B = Omega.take([0,1])
-        C = Xi.take([0,1],[0])
+        newlist = range(2,len(self.omega.value))
+        A = self.omega.take([0,1],newlist)
+        B = self.omega.take([0,1])
+        C = self.xi.take([0,1],[0])
         
-        Omega = Omega.take(newlist)-A.transpose()*B.inverse()*A
-        Xi = Xi.take(newlist,[0]) - A.transpose()*B.inverse()*C
+        self.omega = self.omega.take(newlist)-A.transpose()*B.inverse()*A
+        self.xi = self.xi.take(newlist,[0]) - A.transpose()*B.inverse()*C
         
        
-        mu = Omega.inverse() * Xi
-
-        return (0.0, 0.0)
+        self.mu = self.omega.inverse() * self.xi
+        drone_pos = (self.mu[0][0], self.mu[1][0])
+        #print("update from movements: ", drone_pos)
+        return drone_pos
 
 
 class IndianaDronesPlanner:
