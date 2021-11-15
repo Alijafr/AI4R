@@ -44,6 +44,7 @@
 
 from typing import Dict, List
 from matrix import *
+import math
 import numpy as np
 
 # If you see different scores locally and on Gradescope this may be an indication
@@ -142,7 +143,7 @@ class SLAM:
                 self.xi.value[m+b][0] += measurement[b]/self.measurement_noise
         
         # print(self.landmarks)
-        #self.mu = self.omega.inverse() * self.xi
+        self.mu = self.omega.inverse() * self.xi
         drone_pos = (self.mu[0][0], self.mu[1][0])
         #print("update from measurements: ", drone_pos)
         return drone_pos
@@ -220,7 +221,75 @@ class IndianaDronesPlanner:
             max_distance: the max distance the drone can travel in a single move in meters.
             max_steering: the max steering angle the drone can turn in a single move in radians.
         """
-        # TODO
+        self.max_distance = max_distance
+        self.max_steering = max_steering
+        self.localize = SLAM()
+        self.map = self.localize.get_coordinates()
+        self.drone_pos = self.map['self']
+        self.random_angle_movement = [0, np.pi/6,-np.pi/6,np.pi/4,-np.pi/4, np.pi/3,-np.pi/3]
+    '''
+    line_circle_intersect and check_crash functions were taken from testing_suite_indiana_drones.py
+    '''
+    def line_circle_intersect(self, first_point, second_point, origin, radius):
+        """ Checks if a line segment between two points intersects a circle of a certain radius and origin
+
+        Args: 
+            first_point : (x,y)
+            second_point : (x,y)
+            origin : (x,y)
+            radius : r
+
+        Returns:
+            intersect : True/False
+        
+        """
+        
+        ###REFERENCE###
+        #https://math.stackexchange.com/questions/275529/check-if-line-intersects-with-circles-perimeter
+        x1, y1 = first_point
+        x2, y2 = second_point
+        
+        ox,oy = origin
+        r = radius
+        x1 -= ox
+        y1 -= oy
+        x2 -= ox
+        y2 -= oy
+        a = (x2 - x1)**2 + (y2 - y1)**2
+        b = 2*(x1*(x2 - x1) + y1*(y2 - y1))
+        c = x1**2 + y1**2 - r**2
+        disc = b**2 - 4*a*c
+
+        if a == 0:
+            if c <= 0:
+                return True
+            else:
+                return False
+        else: 
+
+            if (disc <= 0):
+                return False
+            sqrtdisc = math.sqrt(disc)
+            t1 = (-b + sqrtdisc)/(2*a)
+            t2 = (-b - sqrtdisc)/(2*a)
+            if((0 < t1 and t1 < 1) or (0 < t2 and t2 < 1)):
+                return True
+            return False
+                
+    def distance2goal(self,current_pos,goal):
+        
+        return ((current_pos[1]-goal[1])**2 + (current_pos[0]-goal[0])**2)**0.5
+    
+    def normalize_angle (self,current_angle,steering):
+        current_angle += steering
+        if current_angle > np.pi:
+            diff = current_angle- np.pi 
+            current_angle = diff-np.pi
+        elif current_angle < -np.pi:
+            diff = current_angle + np.pi 
+            current_angle = np.pi + diff
+        
+        return current_angle
 
     def next_move(self, measurements: Dict, treasure_location: Dict):
         """Next move based on the current set of measurements.
@@ -251,9 +320,72 @@ class IndianaDronesPlanner:
                         ....
                     }
         """
-        # TODO
-
-        return '', {}
+        treasure_pos = (treasure_location['x'],treasure_location['y'])
+        treasure_type = treasure_location['type']
+        
+        self.localize.process_measurements(measurements)
+        #should this be before or after the update?
+        self.map = self.localize.get_coordinates()
+        self.drone_pos = self.map['self'] #current pos of the drone 
+        
+        #get the angle between the inertial frame (but center at the drone body) and tresure
+        tresure_angle = np.arctan2(treasure_pos[1]-self.drone_pos[1],treasure_pos[0]-self.drone_pos[0])
+        alignment_angle = tresure_angle-self.localize.drone_yaw 
+        #caluclate the distance to goal 
+        dist2tresure = self.distance2goal(self.drone_pos, treasure_pos)
+        # print(dist2tresure)
+        if dist2tresure > self.max_distance:
+            movement = self.max_distance
+        else:
+            if dist2tresure  <= 0.05: 
+                #we reach the treasure, extract it
+                print("extract now")
+                return 'extract {} {} {}'.format(treasure_type,treasure_pos[0], treasure_pos[1]) , self.map
+            else:
+                movement = dist2tresure 
+        #calcualte a new position leading to the treasure, and check if it cause crash 
+        for turn_angle in self.random_angle_movement:
+            collision = False
+            steering = alignment_angle + turn_angle
+            if steering > self.max_steering:
+                steering = self.max_steering
+            elif steering < -self.max_steering:
+                steering = -self.max_steering
+                
+            
+            next_angle = self.normalize_angle(self.localize.drone_yaw,steering)
+            new_pos = (self.drone_pos[0]+movement*np.cos(next_angle) , self.drone_pos[1]+movement*np.sin(next_angle) )
+            for tree in measurements:
+                #the number constant number multipied by the raduis is used to ensure that we don't get very close to the tree
+                intersection = self.line_circle_intersect(self.drone_pos, new_pos, self.map[tree], 1.3*measurements[tree]['radius'])
+                # print(measurements[tree]['type'])
+                # print(intersection)
+                # print("the distance: {} and steering {} ".format(movement,steering))
+                if intersection:
+                    collision = True
+                    break
+            if not collision:   
+                self.localize.process_movement(movement,steering)
+                self.map = self.localize.get_coordinates()
+                # print(self.map)
+                # print(turn_angle)
+                # print("the distance: {} and steering {} ".format(movement,steering))
+                return 'move {} {}'.format(movement, steering) , self.map
+        
+        
+        print('fail')
+        #collide with obstacle and take the penalty :( 
+        
+        if alignment_angle > self.max_steering:
+            alignment_angle = self.max_steering
+        elif alignment_angle < -self.max_steering:
+            alignment_angle = -self.max_steering
+        #update the location
+        alignment_angle = self.normalize_angle(self.localize.drone_yaw,alignment_angle)
+        # print(alignment_angle)
+        self.localize.process_movement(movement,alignment_angle)
+        self.map = self.localize.get_coordinates()
+        return 'move {} {}'.format(movement, alignment_angle) , self.map
 
 def who_am_i():
     # Please specify your GT login ID in the whoami variable (ex: jsmith321).

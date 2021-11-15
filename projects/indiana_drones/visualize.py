@@ -244,14 +244,14 @@ def part_B(params: Dict):
             ###Modified 10/31/2021
             ret = student_planner.next_move(state.generate_measurements(), state._treasure_loc_fromstart)
             #ret = student_planner.next_move(state.generate_measurements(),state._treasure_location)
-
             try:
                 action, locs = ret
 
             except IndexError:
+                
                 action = ret
                 locs = None
-
+            
             state.update_according_to(action)
 
             for tree in state.tree_locs_on_map:
@@ -283,6 +283,7 @@ def part_B(params: Dict):
         display.end_time_step()
 
     except Exception as e:
+        # print('hi')
         print(e)
 
     turtle.bye()
