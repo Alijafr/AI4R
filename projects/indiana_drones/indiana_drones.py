@@ -358,18 +358,13 @@ class IndianaDronesPlanner:
             for tree in measurements:
                 #the number constant number multipied by the raduis is used to ensure that we don't get very close to the tree
                 intersection = self.line_circle_intersect(self.drone_pos, new_pos, self.map[tree], 1.3*measurements[tree]['radius'])
-                # print(measurements[tree]['type'])
-                # print(intersection)
-                # print("the distance: {} and steering {} ".format(movement,steering))
                 if intersection:
                     collision = True
                     break
-            if not collision:   
+            if not collision:
+                #update the localization (SLAM)
                 self.localize.process_movement(movement,steering)
                 self.map = self.localize.get_coordinates()
-                # print(self.map)
-                # print(turn_angle)
-                # print("the distance: {} and steering {} ".format(movement,steering))
                 return 'move {} {}'.format(movement, steering) , self.map
         
         
