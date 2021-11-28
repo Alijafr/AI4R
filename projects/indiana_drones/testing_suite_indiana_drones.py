@@ -36,7 +36,7 @@ PI = math.pi
 ########################################################################
 # for debugging set the time limit to a big number
 ########################################################################
-TIME_LIMIT = 5  # seconds
+TIME_LIMIT = 10  # seconds
 
 ########################################################################
 # set to True for lots-o-output, also passed into drone under test
@@ -45,9 +45,9 @@ VERBOSE_FLAG = False
 
 ########################################################################
 # set to True to disable multiprocessing while running in a debugger and
-# to ensure there is no stochasticity in grading.
+# to ensure there is no stochasticity in grading. Set to False by default.
 ########################################################################
-DEBUGGING_SINGLE_PROCESS = True
+DEBUGGING_SINGLE_PROCESS = False
 
 ########################################################################
 # TODO: you can set NOISE_FLAG to false during development
@@ -66,7 +66,7 @@ else:
 # used to generate unique ids for landmarks.  will change for grader
 ########################################################################
 HASH_SEED = 'some_seed'
-random.seed(HASH_SEED)
+#random.seed(HASH_SEED)
 
 PART_A_CREDIT = 0.40
 PART_B_CREDIT = 0.60
@@ -206,7 +206,7 @@ class State:
 
     def __init__(self, area_map: List[list], tree_radius: List[list], max_distance: float = 1.0,
                  max_steering: float = PI / 2. + 0.01, measure_distance_noise: float = 0.05,
-                 measure_bearing_noise: float = 0.02, horizon: float = float('inf')):
+                 measure_bearing_noise: float = 0.03, horizon: float = float('inf')):
 
         self.collected_treasure = []
         self.crashes = []
@@ -509,7 +509,7 @@ class PartATestCase(unittest.TestCase):
         "  Failed: {message}",
         "  Expected Location:\t{expected}",
         "  SLAM Location:\t{location}",
-        "  Credit: 0.0"
+        "  Credit: {score:.0%}"
         "\n\n- - - - END OF TEST CASE - - - -\n",
     ))
 
@@ -575,8 +575,9 @@ class PartATestCase(unittest.TestCase):
                 translated_x = student_landmark_x + state._start_position['x']
                 translated_y = student_landmark_y + state._start_position['y']
 
-                landmark_dist_errors[landmark['id']] = drone.compute_distance((translated_x, translated_y),
-                                                                              (landmark['x'], landmark['y']))
+                landmark_dist_errors[landmark['id']] = {'error': drone.compute_distance((translated_x, translated_y),
+                                                                              (landmark['x'], landmark['y'])), 
+                                                        'type': landmark['type']}
 
         except Exception as exc:
             self.last_result = self.FAIL_TEMPLATE.format(message=traceback.format_exc(),
@@ -599,11 +600,11 @@ class PartATestCase(unittest.TestCase):
         # calculate score for landmark distance errors
         missed_landmarks = list()
         for landmark_type, landmark_error in landmark_dist_errors.items():
-            if landmark_error < params['landmark_tolerance']:
+            if landmark_error['error'] < params['landmark_tolerance']:
                 landmark_score += max_landmark_score / len(state.tree_locs_on_map)
             else:
-                missed_landmarks.append({'landmark': landmark_type,
-                                         'error': landmark_error})
+                missed_landmarks.append({'landmark': landmark_error['type'],
+                                         'error': landmark_error['error']})
 
         drone_score = round(drone_score, 5)
         landmark_score = round(landmark_score, 5)
@@ -621,13 +622,13 @@ class PartATestCase(unittest.TestCase):
                 drone_message = ''
 
             if landmark_score < max_landmark_score:
-                landmark_message = f"A landmark locations are greater than {params['landmark_tolerance']}"
+                landmark_message = f"Landmark location errors are greater than {params['landmark_tolerance']}\n{missed_landmarks}"
             else:
                 landmark_message = ''
 
             result = self.FAIL_TEMPLATE.format(message=drone_message + landmark_message,
                                                expected=ground_truth,
-                                               location=state_beliefs, **params)
+                                               location=state_beliefs, score=total_score, **params)
 
         self.last_result = result
         self.last_credit = total_score
@@ -636,7 +637,7 @@ class PartATestCase(unittest.TestCase):
                         f"Drone location error {drone_dist_error} is greater than {params['drone_tolerance']}")
 
         self.assertTrue(landmark_score >= max_landmark_score,
-                        f"A landmark location error is greater than {params['landmark_tolerance']}\n{missed_landmarks}")
+                        f"Landmark location errors are greater than {params['landmark_tolerance']}\n{missed_landmarks}")
 
     def test_case1(self):
         self.run_with_params(IndianaDronesPartATestCases.test_case_1)
@@ -797,20 +798,28 @@ class PartBTestCase(unittest.TestCase):
 
 def run_all(stream):
     suites = map(lambda case: unittest.TestSuite(unittest.TestLoader().loadTestsFromTestCase(case)),
-                 [PartATestCase,
-                  PartBTestCase])
+                 [PartATestCase, PartATestCase, PartATestCase, PartATestCase, PartATestCase, PartATestCase, PartATestCase, PartATestCase, PartATestCase, PartATestCase,
+                  PartBTestCase, PartBTestCase, PartBTestCase, PartBTestCase, PartBTestCase, PartBTestCase, PartBTestCase, PartBTestCase, PartBTestCase, PartBTestCase])
 
-    avgs = ()
+    avgs = []
     for suite in suites:
         result = IndianaDronesTestResult(stream=stream)
         suite.run(result)
-        avgs += (result.avg_credit,)
+        avgs.append(result.avg_credit)
 
-    stream.write('part A score: %.02f\n' % (avgs[0] * 100))
-    stream.write('part B score: %.02f\n' % (avgs[1] * 100))
+    partA = avgs[0:10]
+    partB = avgs[10:20]
+
+    #remove lowest score and take average
+    partA.remove(min(partA))
+    partB.remove(min(partB))
+
+    results = [sum(partA)/9.0, sum(partB)/9.0]
+    stream.write('part A score: %.02f\n' % (results[0] * 100))
+    stream.write('part B score: %.02f\n' % (results[1] * 100))
 
     weights = (PART_A_CREDIT, PART_B_CREDIT)
-    total_score = round(sum(avgs[i] * weights[i] for i in (0, 1)) * 100)
+    total_score = round(sum(results[i] * weights[i] for i in (0, 1)) * 100)
     stream.write('score: %.02f\n' % total_score)
 
 

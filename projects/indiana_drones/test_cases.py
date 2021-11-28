@@ -26,7 +26,7 @@ class IndianaDronesPartATestCases:
                             'move 1.0 1.570963',
                             'move 1.0 1.570963'],
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'drone_tolerance': 0.25,
                    'landmark_tolerance': 0.25}
         
@@ -49,7 +49,7 @@ class IndianaDronesPartATestCases:
                             'move 1.0 1.570963',
                             'move 1.0 1.570963'],
                     'drone_distance_noise': 0.05,
-                    'drone_bearing_noise': 0.02,
+                    'drone_bearing_noise': 0.03,
                     'drone_tolerance': 0.25,
                     'landmark_tolerance': 0.25}
 
@@ -73,7 +73,7 @@ class IndianaDronesPartATestCases:
                             'move 1.0 0.0',
                             'move 1.0 0.0'],
                     'drone_distance_noise': 0.05,
-                    'drone_bearing_noise': 0.02,
+                    'drone_bearing_noise': 0.03,
                     'drone_tolerance': 0.25,
                     'landmark_tolerance': 0.25}
 
@@ -99,7 +99,7 @@ class IndianaDronesPartATestCases:
                             'move 0.5 1.0',
                             'move 0.5 0.0'],
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'drone_tolerance': 0.25,
                    'landmark_tolerance': 0.25}
 
@@ -161,7 +161,7 @@ class IndianaDronesPartATestCases:
                             'move 1.0 -1.570963',
                             'move 1.0 -1.570963'],
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'drone_tolerance': 0.25,
                    'landmark_tolerance': 0.25}
 
@@ -188,7 +188,7 @@ class IndianaDronesPartBTestCases:
                                 '..........'],
                    'tree_radius' : {'A' : 0.5, 'B' : 0.2, 'C':0.3},
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'max_distance': 2.0,
                    'max_steering': math.pi / 2. + 0.01,
                    'horizon': 3}
@@ -204,9 +204,9 @@ class IndianaDronesPartBTestCases:
                                 '..........',
                                 '..........',
                                 '..........'],
-                   'tree_radius' : {'A' : 0.5, 'B' : 0.2, 'C':0.7, 'D': 0.3, 'E': 0.7, 'F': 0.4, 'G' : 0.1},
+                   'tree_radius' : {'A' : 0.5, 'B' : 0.2, 'C':0.6, 'D': 0.3, 'E': 0.7, 'F': 0.4, 'G' : 0.1},
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'max_distance': 1.0,
                    'max_steering': math.pi / 2. + 0.01,
                    'horizon': 2.5}
@@ -224,7 +224,7 @@ class IndianaDronesPartBTestCases:
                                 '..........'],
                    'tree_radius' : {'A' : 0.2, 'B' : 0.2, 'C':0.4, 'D': 0.3, 'E': 0.7, 'F': 0.4, 'G' : 0.2, 'H' : 0.5, 'I' : 0.3, 'J':0.7, 'K': 0.3, 'L': 0.1, 'M': 0.4},
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'max_distance': 1.8,
                    'max_steering': math.pi / 2. + 0.01,
                    'horizon': 4.0}
@@ -242,7 +242,7 @@ class IndianaDronesPartBTestCases:
                                 '..K.....L.'],
                    'tree_radius' : {'A' : 0.3, 'B' : 0.1, 'C':0.2, 'D': 0.5, 'E': 0.3, 'F': 0.4, 'G' : 0.4, 'H' : 0.4, 'I' : 0.2, 'J':0.5, 'K': 0.3, 'L': 0.2},
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'max_distance': 3,
                    'max_steering': math.pi / 2. + 0.01,
                    'horizon': 4.0}
@@ -260,7 +260,7 @@ class IndianaDronesPartBTestCases:
                                 '..N.......'],
                    'tree_radius' : {'A' : 0.4, 'B' : 0.5, 'C':0.4, 'D': 0.3, 'E': 0.7, 'F': 0.5, 'G' : 0.8, 'H' : 0.3, 'I' : 0.5, 'J':0.4, 'K': 0.2, 'L': 0.6, 'M': 0.4, 'N': 0.4},
                    'drone_distance_noise': 0.05,
-                   'drone_bearing_noise': 0.02,
+                   'drone_bearing_noise': 0.03,
                    'max_distance': 1.8,
                    'max_steering': math.pi / 2. + 0.01,
                    'horizon': 2.5}

@@ -78,7 +78,7 @@ class SLAM:
         self.mu.zero(2, 1)
         self.landmarks  = {} #should contain the ids and index number in the omeaga starting from 
         self.measurement_noise = 1 # the more, the less trust we have in the measurement
-        self.motion_noise = 0.5 # the more, the less trust we have in the motion
+        self.motion_noise = 0.8 # the more, the less trust we have in the motion
     # Provided Functions
     def get_coordinates(self):
         """
@@ -226,7 +226,7 @@ class IndianaDronesPlanner:
         self.localize = SLAM()
         self.map = self.localize.get_coordinates()
         self.drone_pos = self.map['self']
-        self.random_angle_movement = [0, np.pi/6,-np.pi/6,np.pi/4,-np.pi/4, np.pi/3,-np.pi/3]
+        self.random_angle_movement = [0, np.pi/6,-np.pi/6,np.pi/4,-np.pi/4, np.pi/3,-np.pi/3,np.pi/2,-np.pi/2]
     '''
     line_circle_intersect and check_crash functions were taken from testing_suite_indiana_drones.py
     '''
@@ -337,7 +337,7 @@ class IndianaDronesPlanner:
         if dist2tresure > self.max_distance:
             movement = self.max_distance
         else:
-            if dist2tresure  <= 0.05: 
+            if dist2tresure  <= 0.15: 
                 #we reach the treasure, extract it
                 print("extract now")
                 return 'extract {} {} {}'.format(treasure_type,treasure_pos[0], treasure_pos[1]) , self.map
@@ -357,7 +357,7 @@ class IndianaDronesPlanner:
             new_pos = (self.drone_pos[0]+movement*np.cos(next_angle) , self.drone_pos[1]+movement*np.sin(next_angle) )
             for tree in measurements:
                 #the number constant number multipied by the raduis is used to ensure that we don't get very close to the tree
-                intersection = self.line_circle_intersect(self.drone_pos, new_pos, self.map[tree], 1.3*measurements[tree]['radius'])
+                intersection = self.line_circle_intersect(self.drone_pos, new_pos, self.map[tree], 1.1*measurements[tree]['radius'])
                 if intersection:
                     collision = True
                     break
@@ -377,6 +377,10 @@ class IndianaDronesPlanner:
             alignment_angle = -self.max_steering
         #update the location
         alignment_angle = self.normalize_angle(self.localize.drone_yaw,alignment_angle)
+        if alignment_angle > self.max_steering:
+            alignment_angle = self.max_steering
+        elif alignment_angle < -self.max_steering:
+            alignment_angle = -self.max_steering
         # print(alignment_angle)
         self.localize.process_movement(movement,alignment_angle)
         self.map = self.localize.get_coordinates()
